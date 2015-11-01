@@ -8,6 +8,7 @@ Experimenting with a level-based drafting system
 
 """
 import numpy as np
+import time
 import matplotlib.pyplot as plt
 #from matplotlib.widgets import Cursor
 #http://central.scipy.org/item/22/4/building-a-simple-interactive-2d-data-viewer-with-matplotlib
@@ -151,7 +152,7 @@ class room_deck(object):
             elif isinstance(num_door,int):                                
                 r.rand_door(num_door=num_door)
             else:#otherwise num_door is a list so pick one randomly
-                r.rand_door(num_door=num_door[np.random.randint(0,len(num_door))])
+                r.rand_door(num_door=num_door[np.random.randint(1,len(num_door))])
             
             self.add_room(r)
             
@@ -161,6 +162,10 @@ class room_deck(object):
         for i in index:
             print '\nRoom {}:'.format(i)
             self.deck[i].show()
+            
+    def cycle_deck(self,index):#Cycles the deck so everything above the index is placed on the bottom of the deck
+        self.deck = self.deck[index:]+self.deck[:index]
+        
 
         
 class map(object):
@@ -255,12 +260,13 @@ class map(object):
             if len(new_room_index) == 0:#No valid rooms left so close the door
                 current_room.add_door(None,current_door)
             else:
+                room_deck.cycle_deck(new_room_index[0]) #cycles deck so unused rooms go to the bottom and the room of interest is on the top [0]
                 current_room.add_door([],current_door)
-                self.add_room(room_deck.get_room(new_room_index[0]),
+                self.add_room(room_deck.get_room(0),
                     self.current_position[0] + self.direction[1][direction],
                     self.current_position[1] + self.direction[2][direction],
                     self.direction[0][np.mod(direction+2,4)])
-                room_deck.remove_room(new_room_index[0])
+                room_deck.remove_room(0)
             
     def change_position(self,row,col):
         if self.map[row][col] is None:
@@ -279,14 +285,25 @@ class map(object):
 #Create room deck
 deck = room_deck()
 room_distb = [30,20,10,5,1]
-for lvl in range(len(room_distb)):
+for lvl in range(len(room_distb)-1):
     for index in range(room_distb[lvl]):
-        r = room(lvl)
-        r.rand_door()    
-        deck.add_room(r)
+        deck.add_rand_room(lvl,num_door=np.random.randint(1,4))
+            
+        #r = room(lvl)
+        #r.rand_door()    
+        #deck.add_room(r)
 deck.shuffle_deck()    
-deck.show()
+deck.add_rand_room(len(room_distb)-1,num_door = 0) #Puts the final room on the bottom of the stack
+#deck.show()
 
+
+print 'Objective: Get to the Red Room.'
+print 'Controls: Click on a room to explore adjacent pathways. Click on the starting blue room to exit.'
+print 'Each room leads to like colored rooms and rooms that are one level above and below it'
+print 'Room Distributions:'
+for i in range(len(room_distb)):
+    print 'Lvl {}: {}'.format(i,room_distb[i])
+time.sleep(1)
 
 '''
 Below creates a sample map to explore
@@ -300,20 +317,24 @@ test.change_position(test.current_position[0]-1,test.current_position[1])
 test.expand_map(deck)
 test.show()
 
+#Put figure window on top of all other windows
+#test.canvas.manager.window.attributes('-topmost', 1)
+#After placing figure window on top, allow other windows to be on top of it later
+#test.canvas.manager.window.attributes('-topmost', 0)
 
-print 'Objective: Get to the Red Room.'
-print 'Controls: Click on a room to explore adjacent pathways. Click on the starting blue room to exit.'
-print 'Each room leads to like colored rooms and rooms that are one level above and below it'
-print 'Room Distributions:'
-for i in range(len(room_distb)):
-    print 'Lvl {}: {}'.format(i,room_distb[i])
-
-
+rooms_explored=1
 while 1:
     test.manual_move(deck)
+    rooms_explored+=1    
     test.show()
+    print 'End Room is at position {} in the stack'.format(deck.find_lvl(len(room_distb)-1))
     if ((test.current_position == np.ceil([test.rows-1, (test.cols)/2 ]).astype(int)).all()) or (test.lvl_map[test.current_position[0],test.current_position[1]] == len(room_distb)-1):
         print 'Ending Exploration'
-        print 'Total Rooms Explored: {} out of {}'.format(test.rows*test.cols - np.sum(np.isnan(test.lvl_map)),np.sum(room_distb))
+        print 'Total Rooms seen: {} out of {}'.format(test.rows*test.cols - np.sum(np.isnan(test.lvl_map)),np.sum(room_distb))
+        print 'Exploration steps taken: {}'.format(rooms_explored)
+        #temp = test.lvl_map.flatten()
+        #temp = [temp[i] for i in range(len(temp)) if ~np.isnan(temp[i])]        
+        #temp = plt.hist(temp)        
+        #print '{}\n{}'.format(temp[0],np.divide(temp[0],room_distb))
         break
 
